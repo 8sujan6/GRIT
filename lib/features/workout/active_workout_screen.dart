@@ -243,14 +243,17 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                             }
 
                             return Slidable(
-                              key: ValueKey(
-                                  'slidable_${se.exerciseId}_${se.id ?? i}'),
+                              // KEY FIX: Use only se.id (stable DB id).
+                              // Previously included se.exerciseId which changes
+                              // on swap, causing full widget destruction and
+                              // stale UI until the next frame rebuild.
+                              key: ValueKey('slidable_${se.id ?? i}'),
                               endActionPane: ActionPane(
                                 motion: const StretchMotion(),
                                 extentRatio: 0.3,
                                 children: [
                                   CustomSlidableAction(
-                                    onPressed: (context) =>
+                                    onPressed: (_) =>
                                         _showSwapExerciseFlow(context, i),
                                     backgroundColor: Theme.of(context).grit.surface2,
                                     foregroundColor: Theme.of(context).grit.textSecondary,
@@ -258,7 +261,7 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                                         size: 22),
                                   ),
                                   CustomSlidableAction(
-                                    onPressed: (context) =>
+                                    onPressed: (_) =>
                                         _showRemoveExerciseDialog(context, i),
                                     backgroundColor: Theme.of(context).grit.accent
                                         .withValues(alpha: 0.8),
@@ -269,7 +272,14 @@ class _ActiveWorkoutScreenState extends ConsumerState<ActiveWorkoutScreen> {
                                 ],
                               ),
                               child: RepaintBoundary(
-                                child: ExerciseBlock(exerciseIndex: i),
+                                // KEY FIX: Stable key so Flutter correctly
+                                // tracks the ExerciseBlock across list mutations
+                                // (add/remove/reorder). Without this key, Flutter
+                                // reuses widget objects at wrong indices.
+                                child: ExerciseBlock(
+                                  key: ValueKey('eb_${se.id ?? i}'),
+                                  exerciseIndex: i,
+                                ),
                               ),
                             );
                           },

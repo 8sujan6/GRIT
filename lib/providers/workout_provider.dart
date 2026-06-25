@@ -609,21 +609,6 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState>
     await addExercises([detail]);
   }
 
-  Future<void> _syncWithRoutine(int routineId) async {
-    final rDao = ref.read(routinesDaoProvider);
-    final exercises = state.exercises
-        .map((se) => RoutineExercise(
-              routineId: routineId,
-              exerciseId: se.exerciseId,
-              orderIndex: se.orderIndex,
-              defaultSets: se.targetSets,
-              defaultReps: se.targetReps,
-              restSeconds: se.targetRest,
-            ))
-        .toList();
-
-    await rDao.saveExercises(routineId, exercises);
-  }
 
   Future<void> removeExercise(int index) async {
     _resetInactivityTimer();
@@ -658,10 +643,17 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState>
         nextRestIndex--;
       }
 
+      // LOCK CLEANUP: Remove stale lock entry for the deleted exercise.
+      // Prevents accidental lock bleed if SQLite reuses the same integer ID
+      // for a future inserted exercise.
+      final updatedLocks = Set<int>.from(state.lockedExerciseIds);
+      if (seId != null) updatedLocks.remove(seId);
+
       state = state.copyWith(
         exercises: updatedExercises,
         sets: updatedSets,
         restingExerciseIndex: nextRestIndex,
+        lockedExerciseIds: updatedLocks,
       );
 
       GritHaptics.mediumImpact();
@@ -915,7 +907,7 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState>
     final se = state.exercises[index];
     final updatedSE = se.copyWith(targetRest: seconds);
 
-    // Update DB
+    // Update DB (session_exercises only — NOT the source routine)
     await ref.read(sessionsDaoProvider).updateExerciseRestTime(se.id!, seconds);
 
     // Update State
@@ -926,10 +918,9 @@ class ActiveWorkoutNotifier extends Notifier<ActiveWorkoutState>
       sessionRestOverride: seconds, // Set as session-wide default
     );
 
-    // Sync with routine if this session is linked
-    if (state.session?.routineId != null) {
-      await _syncWithRoutine(state.session!.routineId!);
-    }
+    // NOTE: _syncWithRoutine() intentionally removed here.
+    // Rest time changes during an active session are session-scoped only.
+    // The source routine must not be mutated mid-workout.
 
     _updateNotification();
   }

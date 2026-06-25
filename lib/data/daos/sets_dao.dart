@@ -107,6 +107,14 @@ class SetsDao {
         ORDER BY ws2.started_at DESC
         LIMIT 1
       ) AND se.exercise_id = ?
+        -- HISTORY FIX: Only return completed, non-warmup sets.
+        -- The outer query must filter to completed working sets so that
+        -- positional mapping (prevSets[setIndex]) is correct.
+        -- Without this: warmup sets shift the index, causing working set N
+        -- to show warmup weight/reps as its hint in the input fields.
+        -- Uncompleted ghost sets from previous sessions are also excluded.
+        AND s.is_completed = 1
+        AND s.set_type != 'warmup'
       ORDER BY s.set_number ASC
     ''', [exerciseId, exerciseId]);
     return rows.map(SetEntry.fromMap).toList();
