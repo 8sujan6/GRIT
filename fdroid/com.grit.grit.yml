@@ -39,5 +39,19 @@ Builds:
     build:
       - $$flutter$$/bin/flutter build apk --release
 
+  - versionName: 1.1.0
+    versionCode: 2
+    commit: v1.1.0
+    srclibs:
+      - flutter@stable
+    rm:
+      - ios
+      - macos
+      - windows
+      - linux
+      - web
+    build:
+      - $$flutter$$/bin/flutter build apk --release
+
 AutoUpdateMode: Version
 UpdateCheckMode: Tags
